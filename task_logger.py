@@ -18,25 +18,30 @@ class TaskLog(Database.Base):
     message = Column(String)
 
 
-class TaskLogger:
+class StandardLogger:
     def __init__(self, process, comp_ip=None):
         self.process = process
         self.comp_id = platform.node() or socket.gethostname()
         self.comp_ip = comp_ip or self.get_ip()
         self.db_session = Database.get_session()
+        self.category = 'normal'
 
-    def log_event(self, category, event, message=None):
+    def log_event(self, event, message=None):
 
         task_log = TaskLog(process=self.process,
                            comp_ip=self.comp_ip,
                            comp_id=self.comp_id,
-                           category=category,
+                           category=self.category,
                            event=event,
                            log_time=datetime.utcnow(),
                            message=message
                            )
         self.db_session.add(task_log)
         self.db_session.commit()
+        print('')
+        print(f"{self.category}: ")
+        print(message)
+        print('')
 
     def get_ip(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

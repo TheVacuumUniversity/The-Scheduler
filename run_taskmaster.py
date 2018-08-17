@@ -1,4 +1,4 @@
 from taskmaster import TaskMaster
 
-server = TaskMaster('160.100.70.243', 8000, 2)
+server = TaskMaster('127.0.0.1', 8000, 2)
 server.run()
