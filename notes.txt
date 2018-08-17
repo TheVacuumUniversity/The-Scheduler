@@ -1,0 +1,11 @@
+what we want to log:
+  1. processes:
+    - start
+    - end
+
+  2. task:
+    - load to queue
+    - passed to worker
+    - worker starts task
+    - worker finnishes task
+    - task error

@@ -1,0 +1,14 @@
+venv
+__pycache__/
+database_access.py
+pokusmdb.mdb
+taskworker_nothread.py
+BExAnalyzer.xla
+BExAnalyzer.xla
+BExAnalyzer.xla
+config.py
+config.py
+config.py
+config.py
+config.py
+config.py
