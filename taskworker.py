@@ -1,13 +1,110 @@
-import socket, select
+import socket
+import select
 import platform
-from database import Database
-from task import Task
-from task_logger import StandardLogger
 import time
-rom sys import path  #used for this file path in the system
-from subprocess import call
+import subprocess
+from sys import path  # used for this file path in the system
+
+from database import Database
+from task import ExcelTask, PythonTask
+from task_logger import StandardLogger
+
 
 class TaskWorker:
+    """
+    Receives task id from TaskMaster, loads task data from database, executes
+    the task.
+    :param address: IP address (string) on which to bind worker socket
+    :param port: port(integer) on which to bind worker socker
+    """
+    def __init__(self, address, port):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((address, port))
+        self.comp_name = platform.node() or socket.gethostname()
+        self.comp_ip = self.get_ip()
+
+    def run(self):
+        running = True
+
+        self.init_conn()
+
+        while running:
+            try:
+                db_session = self.get_db_session()
+                response = self.receive()
+                print(f"received task_id {response}")
+                self.current_task = db_session.query(PythonTask).filter_by(id=int(response)).one()
+                print(f"working on task: {self.current_task.technical_name}")
+                self.current_task.in_process = True
+                db_session.commit()
+                self.do_task()
+                db_session.commit()
+                db_session.close()
+            except (KeyboardInterrupt, ValueError):
+                running = False
+                self.socket.close()
+                print("Client shut down")
+
+    def send(self, msg):
+        self.socket.sendall(msg.encode('ascii'))
+
+    def receive(self):
+        return self.socket.recv(1024).decode('ascii')
+
+    def init_conn(self):
+        # send master a name
+        self.send(self.comp_name)
+        # wait for confirmation
+        msg = self.receive()
+        if msg == 'ok':
+            print('name received by master')
+        # send master an ip
+        self.send(self.comp_ip)
+        # wait for confirmation
+        msg = self.receive()
+        if msg == 'ok':
+            print('ip received by master')
+        # send ready message
+        self.send('ready')
+
+    def get_db_session(self):
+        Database.initialize()
+        return Database.get_session()
+
+    def get_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            # doesn't even have to be reachable
+            s.connect(('10.255.255.255', 1))
+            ip_add = s.getsockname()[0]
+        except:
+            ip_add = '127.0.0.1'
+        finally:
+            s.close()
+        return ip_add
+
+    def do_task(self):
+        self.socket.sendall('busy'.encode('ascii'))
+
+        # work
+        python_env = self.current_task.package_path + '/venv/Scripts/python.exe'
+        file_path = self.current_task.package_path + '/' + self.current_task.run_file_name
+        result = subprocess.run([python_env, file_path],
+                                stderr=subprocess.PIPE
+                               )
+
+        if result.stderr:
+            # will need to log into database or pass to master?
+            print(result.stderr)
+        else:
+            print("Lets mark it as complete")
+            self.current_task.mark_as_completed()
+            self.send('ready')
+            print("Marked as completed")
+            print("Waiting for another task")
+
+
+class ExcelTaskWorker:
     # receives t
     def __init__(self, address, port):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -65,7 +162,7 @@ class TaskWorker:
             s.close()
         return ip_add
 
-     def do_task(self):
+    def do_task(self):
         # all methods to perform task will be called from there
         # for now only only waits and marks task as completed
         self.socket.sendall('busy'.encode('ascii'))
@@ -87,7 +184,6 @@ class TaskWorker:
         print("Marked as completed")
         print("Waiting for another task")
 
-    #
     def open_excel_file(self):
         # try:
         print(self.current_task.workbook_path)
