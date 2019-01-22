@@ -1,2 +1,3 @@
 psycopg2==2.7.5
+pywin32==224
 SQLAlchemy==1.2.10
