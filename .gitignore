@@ -3,3 +3,5 @@ __pycache__/
 database_access.py
 pokusmdb.mdb
 taskworker_nothread.py
+config.py
+BExAnalyzer.xla
